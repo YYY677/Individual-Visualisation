@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Use a clip layer to remove rendered features from the map</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.3/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.3/mapbox-gl.js"></script>
+
+  <!-- geocoder -->
+  <script
+    src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.3/mapbox-gl-geocoder.min.js"></script>
+  <link rel="stylesheet"
+    href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.3/mapbox-gl-geocoder.css" type="text/css">
+
+  <!-- google navi api -->
+  <script
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAxVtKinCOsR53MA2GJkC1AYXwoK5hzgKk&callback=initMap&v=weekly"
+    defer></script>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+    }
+
+    #map {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 100%;
+    }
+
+    .map-overlay {
+      font:
+        12px/20px 'Helvetica Neue',
+        Arial,
+        Helvetica,
+        sans-serif;
+      position: absolute;
+      width: 200px;
+      top: 0;
+      left: 0;
+      padding: 10px;
+    }
+
+    .map-overlay .map-overlay-inner {
+      background-color: #fff;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      border-radius: 3px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    .map-overlay-inner fieldset {
+      display: flex;
+      justify-content: space-between;
+      border: none;
+    }
+
+    .map-overlay-inner label {
+      font-weight: bold;
+      margin-right: 10px;
+    }
+
+    .map-overlay-inner .select-fieldset {
+      display: block;
+    }
+
+    .map-overlay-inner .select-fieldset label {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .map-overlay-inner .select-fieldset select {
+      width: 100%;
+    }
+
+    #floating-panel {
+      position: absolute;
+      top: 10px;
+      left: 25%;
+      z-index: 5;
+      background-color: #fff;
+      padding: 5px;
+      border: 1px solid #999;
+      text-align: center;
+      font-family: "Roboto", "sans-serif";
+      line-height: 30px;
+      padding-left: 10px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div id="map"></div>
+    <div class="map-overlay top">
+      <div class="map-overlay-inner">
+        <fieldset class="select-fieldset">
+          <label>Select light preset</label>
+          <select id="lightPreset" name="lightPreset">
+            <!-- Each value matches a light preset -->
+            <option value="dawn">Dawn</option>
+            <option value="day" selected>Day</option>
+            <option value="dusk">Dusk</option>
+            <option value="night">Night</option>
+          </select>
+        </fieldset>
+        <h2 id="laname">Hover over a local authority</h2>
+      </div>
+    </div>
+    <div id="floating-panel">
+      <b>Mode of Travel: </b>
+      <select id="mode">
+        <option value="DRIVING">Driving</option>
+        <option value="WALKING">Walking</option>
+        <option value="BICYCLING">Bicycling</option>
+        <option value="TRANSIT">Transit</option>
+      </select>
+    </div>
+  </div>
+
+  <script>
+
+    //#region 地图初始化
+    mapboxgl.accessToken = 'pk.eyJ1IjoieXV1eSIsImEiOiJjbTV6Nm9oMTgwMTZoMmpzZHNreGVrc3VsIn0.ohpsCdG3ASwD2ViFYw4e9g';
+    const map = new mapboxgl.Map({
+      container: 'map',
+      center: [-0.134039, 51.524514],
+      zoom: 12,
+      pitch: 40, //设置地图的倾斜角度
+      // bearing: 53, //设置地图的旋转角度
+      style: 'mapbox://styles/mapbox/standard',
+      minZoom: 10,
+      maxZoom: 17,
+      cooperativeGestures: true //地图需要ctrl+scroll来缩放
+    });
+    //#endregion
+
+    //#region 控件
+    // 显示geocoer范围在伦敦
+    map.addControl(
+      new MapboxGeocoder({
+        accessToken: mapboxgl.accessToken,
+        // 限制搜索结果到英国
+        countries: 'gb',
+
+        // 使用边界框限制搜索结果到伦敦区域
+        bbox: [-0.5103, 51.2868, 0.3340, 51.6919],
+
+        // 进一步过滤搜索结果，只返回属于 "London" 的结果
+        filter: function (item) {
+          return item.context.some((i) => {
+            return (
+              i.id.split('.').shift() === 'place' &&
+              i.text === 'London'
+            );
+          });
+        },
+        mapboxgl: mapboxgl
+      })
+    );
+    // 全屏显示控件
+    map.addControl(new mapboxgl.FullscreenControl());
+    map.addControl(new mapboxgl.NavigationControl());
+    //#endregion
+
+    //#region 选择不同的主题
+    document
+      .getElementById('lightPreset')
+      .addEventListener('change', function () {
+        map.setConfigProperty('basemap', 'lightPreset', this.value);
+      });
+    //#endregion
+
+    //#region google 导航
+    // 初始化 Google Maps Directions 服务
+    let directionsService;
+
+    // 监听模式选择变化
+    document.getElementById('mode').addEventListener('change', () => {
+      calculateAndDisplayRoute(directionsService);
+    });
+
+    // 计算并显示路线
+    function calculateAndDisplayRoute(directionsService) {
+      const selectedMode = document.getElementById('mode').value;
+
+      directionsService.route({
+        origin: { lat: 51.524821, lng: -0.132231 }, // 起点
+        destination: { lat: 51.538122, lng: -0.009628 }, // 终点
+        travelMode: google.maps.TravelMode[selectedMode],
+      })
+        .then((response) => {
+          const route = response.routes[0].overview_path.map(point => [point.lng(), point.lat()]);
+          // 在 Mapbox 地图上绘制路线
+          if (map.getSource('route')) {
+            map.getSource('route').setData({
+              type: 'Feature',
+              geometry: {
+                type: 'LineString',
+                coordinates: route
+              }
+            });
+          } else {
+            map.addSource('route', {
+              type: 'geojson',
+              data: {
+                type: 'Feature',
+                geometry: {
+                  type: 'LineString',
+                  coordinates: route
+                }
+              }
+            });
+            map.addLayer({
+              id: 'route',
+              type: 'line',
+              source: 'route',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': '#ff0000',
+                'line-width': 5
+              }
+            });
+          }
+        })
+        .catch((e) => window.alert("Directions request failed due to " + e));
+    }
+
+    // 初始计算并显示路线
+    function initMap() {
+      directionsService = new google.maps.DirectionsService();
+      calculateAndDisplayRoute(directionsService);
+    }
+    //#endregion
+
+    map.on('load', () => {
+
+      //#region 校区相关
+      map.addSource('campus', {
+        type: 'geojson',
+        data: './data/UCL.geojson'
+      });
+
+      // add the clip layer and configure it to also remove symbols and trees.
+      // clipping becomes active from zoom level 16 and below.
+      // map.addLayer({
+      //     'id': 'eraser',
+      //     'type': 'clip',
+      //     'source': 'campus',
+      //     'layout': {
+      //         // specify the layer types to be removed by this clip layer
+      //         'clip-layer-types': ['symbol', 'model']
+      //     },
+      //     'maxzoom': 16
+      // });
+
+      // 添加线条图层（展示剪切区域）
+
+      map.addLayer({
+        'id': 'eraser-debug',
+        'type': 'line',
+        'source': 'campus',
+        'paint': {
+          'line-color': 'rgba(255, 0, 0, 0.9)',
+          'line-dasharray': [0, 4, 3],
+          'line-width': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            10,  // 在 zoom 10 级别时，线宽为 5
+            5,
+            15,  // 在 zoom 15 级别时，线宽为 15
+            15
+          ],
+          'line-opacity': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            10,  // zoom < 10 时，线条保持较低的透明度
+            0.4,
+            15,  // zoom >= 15 时，线条变得完全不透明
+            1
+          ]
+        }
+      });
+      // 添加 UCL 校区点数据
+      map.addSource('campus-points', {
+        type: 'geojson',
+        data: './data/UCL_point.geojson' // 你的点数据文件路径
+      });
+      // 校区点（使用 circle 图层）
+      map.addLayer({
+        'id': 'campus-points-layer',
+        'type': 'circle',  // 使用 circle 图层来表示点
+        'source': 'campus-points',
+        'paint': {
+          // 控制点的颜色和大小
+          'circle-color': 'red',  // 点的颜色
+          'circle-radius': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            10,  // 在 zoom 10 时，点的半径为 5
+            5,
+            15,  // 在 zoom 15 时，点的半径为 15
+            15
+          ],
+          'circle-opacity': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            10,  // 在 zoom 10 时，点的透明度为 0.5
+            0.5,
+            15,  // 在 zoom 15 时，点的透明度为 1
+            1
+          ]
+        }
+      });
+
+      // Change the cursor to a pointer when the mouse is over the places layer.
+      map.on('mouseenter', 'campus-points-layer', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      })
+      map.on('mouseleave', 'campus-points-layer', () => {
+        map.getCanvas().style.cursor = '';
+      })
+      // 校区点击事件
+      map.on('click', 'campus-points-layer', (e) => {
+        var coordinates = e.features[0].geometry.coordinates.slice();
+        var name = e.features[0].properties.name;
+        // Ensure that if the map is zoomed out such that multiple
+        // copies of the feature are visible, the popup appears
+        // over the copy being pointed to.
+        while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+          coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+        }
+        new mapboxgl.Popup()
+          .setLngLat(coordinates)
+          .setHTML(`<h3>${name}</h3><p>The campus area is only an approximate range.</p>`)
+          .addTo(map);
+      });
+      //#endregion
+
+      //#region TfL 地铁线路
+      fetch('./data/TfL_lines.geojson')
+        .then(response => response.json())
+        .then(data => {
+          // 过滤出你需要的线路
+          const selectedLines = ['WaterlooCi', 'Victoria', 'Piccadilly', 'Northern', 'Metropolit', 'Jubilee', 'HammCity', 'District', 'Circle', 'Central', 'Bakerloo'];
+          data.features = data.features.filter(feature => {
+            return selectedLines.some(line => feature.properties[line] === 1);
+          });
+
+          // 提取 lines[0].colour 到顶层 properties.colour
+          data.features.forEach(feature => {
+            if (feature.properties.lines && feature.properties.lines.length > 0) {
+              feature.properties.colour = feature.properties.lines[0].colour;
+            }
+          });
+
+          // 添加数据源
+          map.addSource('underground', {
+            type: 'geojson',
+            data: data
+          });
+
+          // 添加图层
+          map.addLayer({
+            'id': 'underground-layer',
+            'type': 'line',
+            'source': 'underground',
+            'paint': {
+              'line-color': ['get', 'colour'],  // 使用线路本身的颜色
+              'line-width': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                10, 2,  // 最小zoom级别和最小宽度
+                15, 5   // 最大zoom级别和最大宽度
+              ]
+            }
+          });
+        });
+      //#endregion
+
+      //#endregion
+
+
+
+      //#region 实现boroughs的hover效果
+      // 添加本地的 London_Boroughs 数据源
+      map.addSource('LondonBoroughs', {
+        'type': 'geojson',
+        'data': './data/London_Boroughs.geojson'
+      });
+
+      // 添加boroughs图层
+      map.addLayer({
+        id: 'LocalAuthorities',
+        type: 'fill',
+        source: 'LondonBoroughs',
+        layout: {
+          'visibility': 'visible'
+        },
+        paint: {
+          'fill-color': '#000',
+          'fill-opacity': 0.1
+        }
+      });
+
+      // Add the line highlight layer.
+      map.addLayer({
+        id: 'highlight',
+        type: 'line',
+        source: 'LondonBoroughs',
+        'layout': {
+          'visibility': 'visible'
+        },
+        paint: {
+          'line-color': 'rgba(0, 0, 0, 0.5)',
+          'line-width': 4
+        },
+        filter: ['==', 'name', 'empty']
+      });
+
+      map.on('mousemove', function (e) {
+        var la = map.queryRenderedFeatures(e.point, {
+          layers: ['LocalAuthorities']
+        });
+
+        if (la.length == 1) {
+          map.setFilter('highlight', ['==', 'name', la[0].properties.name]);
+          document.getElementById('laname').innerHTML = la[0].properties.name;
+        } else {
+          map.setFilter('highlight', ['==', 'name', 'null']);
+          document.getElementById('laname').innerHTML = "Hover over a local authority";
+        }
+      });
+      //#endregion
+
+    });
+
+
+
+
+
+  </script>
+
+</body>
+
+</html>

@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UK Public Transport Isochrones</title>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.0/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.0.0/mapbox-gl.js"></script>
+  <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
+  <!-- kd-tree -->
+  <script src="https://unpkg.com/kd-tree-javascript@1.0.3/kdTree-min.js"></script>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+
+  <!-- geocoder -->
+  <script
+    src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.3/mapbox-gl-geocoder.min.js"></script>
+  <link rel="stylesheet"
+    href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.3/mapbox-gl-geocoder.css" type="text/css">
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    #map {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .legend {
+      padding: 6px 8px;
+      font: 14px Arial, Helvetica, sans-serif;
+      background: white;
+      background: rgba(255, 255, 255, 0.8);
+      line-height: 24px;
+      color: #555;
+      position: absolute;
+      bottom: 30px;
+      left: 10px;
+      z-index: 1;
+    }
+
+    .legend h4 {
+      text-align: left;
+      font-size: 16px;
+      margin: 4px 0px;
+      color: #777;
+    }
+
+    .legend span {
+      position: relative;
+      bottom: 3px;
+    }
+
+    .legend i {
+      width: 18px;
+      height: 18px;
+      float: left;
+      margin: 0 8px 0 0;
+      opacity: 0.7;
+    }
+
+    .info {
+      padding: 6px 8px;
+      font: 14px/16px sans-serif;
+      background: white;
+      background: rgba(255, 255, 255, 0.8);
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+      border-radius: 5px;
+      min-width: 225px;
+      max-width: 300px;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding-bottom: 20px;
+      z-index: 1;
+    }
+
+    .search-marker {
+      color: rgba(32, 106, 190, 1);
+    }
+
+    .start-marker {
+      color: rgba(36, 161, 26, 1);
+    }
+
+    .legend2 {
+      background: rgba(255, 255, 255, 0.8);
+      padding: 10px;
+      border-radius: 8px;
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      z-index: 1;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .legend2 div {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      /* 增加间距 */
+    }
+
+    .legend2 span:first-child {
+      display: inline-block;
+      width: 15px;
+      height: 15px;
+      margin-right: 5px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      /* 防止颜色方块缩小 */
+    }
+
+    .legend2 span:last-child {
+      flex-grow: 1;
+      /* 让文本部分填充剩余空间 */
+      white-space: nowrap;
+      /* 防止换行 */
+      text-align: left;
+    }
+
+    .mapboxgl-popup {
+      max-width: 300px;
+      font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+    }
+
+    .mapboxgl-popup-content {
+      padding: 4px;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 10px;
+      box-shadow: cadetblue 0px 0px 10px;
+    }
+
+    .mapboxgl-popup-close-button {
+      font-size: 16px;
+      color: #333;
+      top: 5px;
+      right: 5px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+  <div class="info">
+    <div id="info">
+      <b>Click <i class="fa fa-search"></i> below to search for a location</b><br />
+      The map will show areas you can reach from the location using public transport<br />
+    </div>
+    <div style="margin-top: 20px;">
+      <b>Control Isochrone Map: </b> <br><br>
+      <button id="Isoch_Main">UCL Main</button> <br><br>
+      <button id="Isoch_East">UCL East</button> <br><br>
+      <button id="Isoch_click">Click to display Isochrone Map</button> <br><br>
+      <button id="Isoch_remove">Remove current Isochrone Map</button> <br><br>
+    </div>
+    <table>
+      <tr id="boroughs-row">
+        <td>
+          <input type="checkbox" id="toggle-boroughs-housing">
+          <label for="toggle-boroughs-housing">Housing price (boroughs)</label>
+        </td>
+      </tr>
+      <tr id="lsoa-row">
+        <td>
+          <input type="checkbox" id="toggle-housing">
+          <label for="toggle-housing">Housing price (lsoa)</label>
+        </td>
+      </tr>
+      <tr id="slider-row" style="display: none;">
+        <td>
+          <input id='slider' type='range' min='2010' max='2024' step='1' value='2010' list='tickmarks'
+            style="width: 230px; height: 30px;" />
+          <datalist id="tickmarks">
+            <option value="2010" label="2010"></option>
+            <option value="2011"></option>
+            <option value="2012"></option>
+            <option value="2013"></option>
+            <option value="2014" label="2014"></option>
+            <option value="2015"></option>
+            <option value="2016"></option>
+            <option value="2017"></option>
+            <option value="2018"></option>
+            <option value="2019"></option>
+            <option value="2020"></option>
+            <option value="2021"></option>
+            <option value="2022"></option>
+            <option value="2023"></option>
+            <option value="2024" label="2024"></option>
+          </datalist>
+        </td>
+        <td>
+          <label id='year'><b>2010</b></label>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="legend" id="legend">
+    <h4>Area accessible in:</h4>
+    <b>click to filter</b><br>
+    <i onclick="legendClicked(this, 15)" style="background: rgb(254, 203, 28);"></i><span
+      onclick="legendClicked(this, 15)">15 minutes</span><br>
+    <i onclick="legendClicked(this, 30)" style="background: rgb(253, 105, 12);"></i><span
+      onclick="legendClicked(this, 30)">30 minutes</span><br>
+    <i onclick="legendClicked(this, 45)" style="background: rgb(191, 0, 23);"></i><span
+      onclick="legendClicked(this, 45)">45 minutes</span><br>
+    <i onclick="legendClicked(this, 60)" style="background: rgb(85, 0, 77);"></i><span
+      onclick="legendClicked(this, 60)">60 minutes</span><br>
+  </div>
+
+  <div id="lsoa-legend" class="legend2" style="display: none;">
+    <b>LSOA Price Legend</b>
+    <div><span style="background-color: #b2182b; opacity: 1;"></span> <span id="legend-highest">Highest Price</span>
+    </div>
+    <div><span style="background-color: #d6604d; opacity: 1;"></span> <span id="legend-quantile5"></span></div>
+    <div><span style="background-color: #f4a582; opacity: 1;"></span> <span id="legend-quantile4"></span></div>
+    <div><span style="background-color: #fddbc7; opacity: 1;"></span> <span id="legend-quantile3"></span></div>
+    <div><span style="background-color: #d1e5f0; opacity: 1;"></span> <span id="legend-quantile2"></span></div>
+    <div><span style="background-color: #92c5de; opacity: 1;"></span> <span id="legend-quantile1"></span></div>
+    <div><span style="background-color: #2166AC; opacity: 1;"></span> <span id="legend-lowest">Lowest Price</span>
+    </div>
+  </div>
+
+  <div id="boroughs-legend" class="legend2" style="display: none;">
+    <b>Boroughs Price Legend</b>
+    <div><span style="background-color: #b2182b; opacity: 0.7;"></span> <span id="legend-year-highest">Highest
+        Price</span>
+    </div>
+    <div><span style="background-color: #d6604d; opacity: 0.7;"></span> <span id="legend-year-quantile5"></span></div>
+    <div><span style="background-color: #f4a582; opacity: 0.7;"></span> <span id="legend-year-quantile4"></span></div>
+    <div><span style="background-color: #fddbc7; opacity: 0.7;"></span> <span id="legend-year-quantile3"></span></div>
+    <div><span style="background-color: #d1e5f0; opacity: 0.7;"></span> <span id="legend-year-quantile2"></span></div>
+    <div><span style="background-color: #92c5de; opacity: 0.7;"></span> <span id="legend-year-quantile1"></span></div>
+    <div><span style="background-color: #2166AC; opacity: 0.7;"></span> <span id="legend-year-lowest">Lowest
+        Price</span>
+    </div>
+  </div>
+
+  <script>
+    let geojson = null;
+    let areas = null;
+    let searchTree = null;
+    let customData = null;
+    let hoveredFeatureId = null;
+    let price = null;
+    let coordinates = null;
+    // 颜色渐变（从蓝到红）
+    let colors = ['#2166ac', '#92c5de', '#d1e5f0', '#fddbc7', '#f4a582', '#d6604d', '#b2182b'];
+
+    mapboxgl.accessToken = 'pk.eyJ1IjoieXV1eSIsImEiOiJjbTV6Nm9oMTgwMTZoMmpzZHNreGVrc3VsIn0.ohpsCdG3ASwD2ViFYw4e9g';
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/standard',
+      center: [-0.132231, 51.524821],
+      zoom: 12
+    });
+
+    map.on('load', () => {
+      //#region student apartments
+      map.addSource('stu-apart', {
+        type: 'geojson',
+        data: customData,
+        generateId: true
+      })
+      map.addLayer({
+        id: 'student-apartments',
+        type: 'circle',
+        source: 'stu-apart',
+        paint: {
+          'circle-radius': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            10, 2,  // 在 zoom 13 时，点的半径为 2
+            17, 7
+          ],
+          'circle-color': 'rgb(0, 0, 0)',
+          'circle-stroke-width': [
+            'case',
+            ['boolean', ['feature-state', 'hover'], false],
+            4,
+            2
+          ],
+          'circle-stroke-color': 'rgb(0, 0, 0)'
+        }
+      });
+      map.on('mouseenter', 'student-apartments', function (e) {
+        map.getCanvas().style.cursor = 'pointer';
+        const coordinates = e.features[0].geometry.coordinates.slice();
+        const description = e.features[0].properties.name;
+        while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+          coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+        }
+        hoveredFeatureId = e.features[0].id;
+        map.setFeatureState({ source: 'stu-apart', id: hoveredFeatureId }, { hover: true });
+        new mapboxgl.Popup({ closeButton: false })
+          .setLngLat(coordinates)
+          .setHTML(`<b>${description}</b>`)
+          .addTo(map);
+      });
+      map.on('mouseleave', 'student-apartments', function () {
+        map.getCanvas().style.cursor = '';
+        document.querySelector('.mapboxgl-popup').remove();
+        if (hoveredFeatureId) {
+          map.setFeatureState({ source: 'stu-apart', id: hoveredFeatureId }, { hover: false });
+          hoveredFeatureId = null;
+        }
+      });
+      //#endregion
+
+      //#region boroughs price
+      fetch('./data/housing/boroughs_price.geojson')
+        .then(response => response.json())
+        .then(data => {
+          map.addSource('boroughs_price_data', {
+            type: 'geojson',
+            data: data,
+            generateId: true
+          });
+
+          // let prices = data.features.map(f => f.properties['2010']).filter(v => v !== null && !isNaN(v));
+          // if (prices.length === 0) {
+          //   console.error("Prices array is empty. Check for missing or invalid data.");
+          //   return;
+          // }
+
+          // prices.sort((a, b) => a - b);
+
+          // // 计算分位数 (5 个分位数)
+          // let quantiles = [];
+          // for (let i = 1; i <= 6; i++) {
+          //   let index = Math.floor(i * prices.length / 7); // 计算索引位置
+          //   quantiles.push(prices[index]);
+          // }
+
+          // // 确保 quantiles 数组是严格递增的
+          // quantiles = [...new Set(quantiles)];  // 移除重复项
+          // quantiles.sort((a, b) => a - b);  // 确保是严格递增的
+
+          // console.log("Quantile Breaks:", quantiles);
+
+          // let colorExpression = ['step', ['get', '2010'], colors[0]]; // 默认颜色
+          // // 为每个 quantile 赋值颜色
+          // for (let i = 0; i < quantiles.length; i++) {
+          //   colorExpression.push(quantiles[i]); // 值
+          //   colorExpression.push(colors[i + 1]); // 颜色
+          // }
+
+          // console.log("Color Expression:", colorExpression);
+
+          // // 更新图例
+          // document.getElementById('legend-year-lowest').textContent = `£${prices[0].toLocaleString()} - £${quantiles[0].toLocaleString()}`;
+          // document.getElementById('legend-year-quantile1').textContent = `£${quantiles[0].toLocaleString()} - £${quantiles[1].toLocaleString()}`;
+          // document.getElementById('legend-year-quantile2').textContent = `£${quantiles[1].toLocaleString()} - £${quantiles[2].toLocaleString()}`;
+          // document.getElementById('legend-year-quantile3').textContent = `£${quantiles[2].toLocaleString()} - £${quantiles[3].toLocaleString()}`;
+          // document.getElementById('legend-year-quantile4').textContent = `£${quantiles[3].toLocaleString()} - £${quantiles[4].toLocaleString()}`;
+          // document.getElementById('legend-year-quantile5').textContent = `£${quantiles[4].toLocaleString()} - £${quantiles[5].toLocaleString()}`;
+          // document.getElementById('legend-year-highest').textContent = `£${quantiles[5].toLocaleString()} - £${prices[prices.length - 1].toLocaleString()}`;
+
+          // 添加填充图层
+          map.addLayer({
+            id: 'boroughs_price',
+            type: 'fill',
+            source: 'boroughs_price_data',
+            layout: {
+              visibility: 'none'
+            },
+            // paint: {
+            //   'fill-color': colorExpression,
+            //   'fill-opacity': 0.7
+            // }
+          });
+          updateBoroughsPriceLayer(2010);
+          
+          map.on('mouseenter', 'boroughs_price', (e)=>{
+            if (e.features.length==0) return;
+            map.getCanvas().style.cursor = 'pointer';
+          })
+          map.on('mouseleave', 'boroughs_price', ()=>{
+            map.getCanvas().style.cursor = '';
+          })
+            map.on('click', 'boroughs_price', (e) => {
+            if (e.features.length == 0) return;
+            const name = e.features[0].properties.NAME;
+            let prices = {};
+            for (let year = 2010; year <= 2024; year++) {
+              prices[year] = e.features[0].properties[String(year)];
+            }
+            // console.log(`Borough: ${name}`, prices);
+            new mapboxgl.Popup({ closeButton: false, closeOnMove: true, closeOnClick: true })
+              .setLngLat(e.lngLat)
+              .setHTML(`<b>${name}</b><br>${Object.entries(prices).map(([year, price]) => `${year}: £${price.toLocaleString()}`).join('<br>')}`)
+              .addTo(map)
+          })
+        });
+      //#endregion
+
+      //#region lsoa price
+      fetch('./data/housing/lsoa_price.geojson')
+        .then(response => response.json())
+        .then(data => {
+          map.addSource('lsoa_price_data', {
+            type: 'geojson',
+            data: data,
+            generateId: true
+          });
+
+          let medians = data.features
+            .map(f => f.properties.median)
+            .filter(v => v !== null && !isNaN(v)); // 过滤掉缺失值和NaN
+
+          // 检查 medians 数组是否为空
+          if (medians.length === 0) {
+            console.error("Medians array is empty. Check for missing or invalid data.");
+            return;
+          }
+
+          // 排序 medians 数组
+          medians.sort((a, b) => a - b);
+
+          // 计算分位数 (6 个分位数)
+          let quantiles = [];
+          for (let i = 1; i <= 6; i++) {
+            let index = Math.floor(i * medians.length / 7); // 计算索引位置
+            quantiles.push(medians[index]);
+          }
+
+          // 确保 quantiles 数组是严格递增的
+          quantiles = [...new Set(quantiles)]; // 移除重复项
+          quantiles.sort((a, b) => a - b); // 确保是严格递增的
+
+          console.log("Quantile Breaks:", quantiles);
+
+
+
+          // 创建 step 颜色表达式
+          let colorExpression = ['step', ['get', 'median'], colors[0]]; // 默认颜色
+
+          // 为每个 quantile 赋值颜色
+          for (let i = 0; i < quantiles.length; i++) {
+            colorExpression.push(quantiles[i]); // 值
+            colorExpression.push(colors[i + 1]); // 颜色
+          }
+
+          console.log("Color Expression:", colorExpression);
+
+          // 更新图例
+          document.getElementById('legend-lowest').textContent = `£${medians[0].toLocaleString()} - £${quantiles[0].toLocaleString()}`;
+          document.getElementById('legend-quantile1').textContent = `£${quantiles[0].toLocaleString()} - £${quantiles[1].toLocaleString()}`;
+          document.getElementById('legend-quantile2').textContent = `£${quantiles[1].toLocaleString()} - £${quantiles[2].toLocaleString()}`;
+          document.getElementById('legend-quantile3').textContent = `£${quantiles[2].toLocaleString()} - £${quantiles[3].toLocaleString()}`;
+          document.getElementById('legend-quantile4').textContent = `£${quantiles[3].toLocaleString()} - £${quantiles[4].toLocaleString()}`;
+          document.getElementById('legend-quantile5').textContent = `£${quantiles[4].toLocaleString()} - £${quantiles[5].toLocaleString()}`;
+          document.getElementById('legend-highest').textContent = `£${quantiles[5].toLocaleString()} - £${medians[medians.length - 1].toLocaleString()}`;
+
+          // 添加填充图层
+          map.addLayer({
+            id: 'lsoa_price',
+            type: 'fill',
+            source: 'lsoa_price_data',
+            layout: {
+              visibility: 'none'
+            },
+            paint: {
+              'fill-color': colorExpression,
+              'fill-outline-color': '#000',
+              'fill-opacity': 1,
+            }
+          });
+        });
+
+      map.on('click', 'lsoa_price', (e) => {
+        if (!e.features) return;
+        coordinates = e.lngLat;
+        price = e.features[0].properties.median;
+        const lsoa = e.features[0].properties.LSOA11CD;
+        new mapboxgl.Popup({ closeButton: false, closeOnMove: true, closeOnClick: true })
+          .setLngLat(coordinates)
+          .setHTML(`<b>LSOA: ${lsoa}</b><br>Median Price: £${price}`)
+          .addTo(map);
+      });
+      map.on('mouseenter', 'lsoa_price', function (e) {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+
+      map.on('mouseleave', 'lsoa_price', function () {
+        map.getCanvas().style.cursor = '';
+      });
+
+      //#endregion
+    })
+
+    //#region isochrone 
+
+    const opacity = 150;
+    const colours = { 15: "rgb(254, 203, 28)", 30: "rgb(253, 105, 12)", 45: "rgb(191, 0, 23)", 60: "rgb(85, 0, 77)" };
+    const opacities = { 15: (opacity / 255.0), 30: (opacity / 255.0), 45: (opacity / 255.0), 60: (opacity / 255.0) };
+
+    function isochroneGetColor(d) {
+      return colours[d];
+    }
+
+    function isochroneGetOpacity(d) {
+      return opacities[d];
+    }
+
+    function isochroneStyle(feature) {
+      return {
+        'fill-color': isochroneGetColor(feature.properties['Travel Minutes']),
+        'fill-opacity': isochroneGetOpacity(feature.properties['Travel Minutes']),
+        'fill-outline-color': '#000'
+      };
+    }
+
+    function legendClicked(element, num) {
+      if (geojson) {
+        const is = document.querySelectorAll('.legend i');
+        for (let n = 0; n <= 3; n++) {
+          let mins = (n + 1) * 15;
+          //如果是，则将对应时间段的透明度设置为 opacity / 255.0，并将图例项的透明度设置为 1
+          if (mins <= num) {
+            opacities[mins] = (opacity / 255.0);
+            is[n].style.opacity = 1;
+          } else {
+            opacities[mins] = 0;
+            is[n].style.opacity = 0.2;
+          }
+        }
+        geojson.features.forEach(feature => {
+          const layerId = `isochrone-${feature.properties['Travel Minutes']}`;
+          if (map.getLayer(layerId)) {
+            // 更新该图层的填充透明度。
+            map.setPaintProperty(layerId, 'fill-opacity', isochroneGetOpacity(feature.properties['Travel Minutes']));
+          }
+        });
+      }
+    }
+
+    function loadJson(url, callback) {
+      return fetch(url) // 发起一个网络请求，获取指定 URL 的数据
+        .then(response => response.json()) // 将响应解析为 JSON 对象
+        .then(data => callback(data)) // 将解析后的 JSON 数据传递给回调函数
+        .catch(error => console.error('Error loading JSON:', error)); // 如果请求失败，输出错误信息
+    }
+
+    function distance(a, b) {
+      return turf.distance(turf.point([a.lng, a.lat]), turf.point([b.lng, b.lat]));
+    }
+
+    window.onload = function () {
+      loadJson('https://ni-travel-isochrones.s3.eu-west-2.amazonaws.com/all-area-centres.geojson', function (data) {
+        areas = turf.featureCollection(data.features);
+        //kdTree 是一种用于多维空间中快速搜索的树形数据结构。在这里，它用于地理空间搜索。
+        searchTree = new kdTree(data.features.map(feature => ({
+          lat: feature.geometry.coordinates[1],
+          lng: feature.geometry.coordinates[0],
+          areaname: feature.properties.areaname
+        })), distance, ["lat", "lng"]);
+
+        const searchParam = new URLSearchParams(location.search).get('sa');
+        if (searchParam) {
+          const feature = data.features.find(f => f.properties.areaname === searchParam);
+          if (feature) {
+            updateInfo([], searchParam);
+            displayIsochrone(searchParam);
+          }
+        }
+      });
+    };
+
+    function displayIsochrone(sa) {
+      loadJson(`https://ni-travel-isochrones.s3.eu-west-2.amazonaws.com/${sa}.geojson`, function (out) {
+        console.log(out);
+        out.features.sort((a, b) => b.properties['Travel Minutes'] - a.properties['Travel Minutes']);
+        if (geojson) {
+          out.features.forEach(feature => {
+            const layerId = `isochrone-${feature.properties['Travel Minutes']}`;
+            if (map.getLayer(layerId)) {
+              map.removeLayer(layerId);
+            }
+          });
+          if (map.getSource('isochrones')) {
+            map.removeSource('isochrones');
+          }
+        }
+        geojson = out;
+        map.addSource('isochrones', { type: 'geojson', data: out });
+        out.features.forEach(feature => {
+          map.addLayer({
+            id: `isochrone-${feature.properties['Travel Minutes']}`,
+            type: 'fill',
+            source: 'isochrones',
+            paint: isochroneStyle(feature),
+            filter: ['==', ['get', 'Travel Minutes'], feature.properties['Travel Minutes']]
+          });
+        });
+      });
+    }
+
+    const info = document.getElementById('info');
+
+    function updateInfo(address, sa) {
+      const url = `${location.protocol}//${location.host}${location.pathname}?sa=${sa ? sa : ''}`;
+      info.innerHTML = (
+        (address.length > 0 ? `<b>${address[0].trim()}</b>&ensp;<i class="fa fa-map-marker search-marker"></i><br />` : '<b>Click <i class="fa fa-search"></i> below to search for a location</b><br />The map will show areas you can reach from the location using public transport<br />') +
+        (address.length > 1 ? `${address[1].trim()}<br />` : '') +
+        (address.length > 2 ? `${address[2].trim()}<br />` : '') +
+        (sa ? `${sa}&ensp;<i class="fa fa-map-marker start-marker"></i><br />` : '')
+      )
+    }
+
+    // 处理搜索结果
+    function handleSearchResult(lon, lat, placeName) {
+      if (isNaN(lon) || isNaN(lat)) {
+        console.error("Invalid coordinates:", lon, lat);
+        return;
+      }
+      // 构造搜索点
+      const search = { lng: lon, lat: lat };
+      const found = searchTree.nearest(search, 1, 20000);
+      if (found && found.length > 0) {
+        const sa = found[0][0].areaname;
+        console.log("Found:", sa);
+        updateInfo(placeName.split(','), sa);
+        displayIsochrone(sa);
+      }
+    }
+
+    //#endregion
+
+    //#region local geocoder
+    const geocoder = new MapboxGeocoder({
+      accessToken: mapboxgl.accessToken,
+      placeholder: 'Search student apartments',
+      localGeocoder: forwardGeocoder,
+      mapboxgl: mapboxgl,
+      marker: false,
+      bbox: [-9.0, 49.75, 2.01, 61.01], // 限制搜索范围（英国）
+      // 屏幕上出现位置
+    });
+    map.addControl(geocoder, 'top-right');
+
+    // 监听搜索输入
+    geocoder.on('result', function (e) {
+      const lon = e.result.center[0];
+      const lat = e.result.center[1];
+      const placeName = e.result.place_name;
+      console.log(e, lon, lat, placeName);
+      handleSearchResult(lon, lat, placeName);
+    });
+
+    // Load custom data to supplement the search results.
+    // 加载本地学生公寓geojson数据文件
+    fetch('./data/Student_Apartments.geojson')
+      .then(response => response.json())
+      .then(data => {
+        customData = data;
+        console.log(customData);
+      })
+      .catch(error => console.error('Error loading local GeoJSON:', error));
+
+    function forwardGeocoder(query) {
+      const matchingFeatures = [];
+      if (customData) {
+        for (const feature of customData.features) {
+          // 处理与源数据不同大小写的查询
+          if (feature.properties.name.toLowerCase().includes(query.toLowerCase())) {
+            // 使用 carmen geojson 格式为自定义数据结果添加树形表情符号作为前缀
+            feature['place_name'] = `🏠 ${feature.properties.name}`;
+            feature['center'] = feature.geometry.coordinates;
+            feature['place_type'] = ['student apartment'];
+            matchingFeatures.push(feature);
+          }
+        }
+      }
+      return matchingFeatures;
+    }
+    //#endregion
+
+    document.getElementById('Isoch_Main').addEventListener('click', () => {
+      updateInfo(['UCL Main Campus'], 'E00004173');
+      displayIsochrone('E00004173');
+      map.flyTo({ center: [-0.132231, 51.524821], zoom: 12 });
+    })
+    document.getElementById('Isoch_East').addEventListener('click', () => {
+      updateInfo(['UCL East Campus'], 'E00175025');
+      displayIsochrone('E00175025');
+      map.flyTo({ center: [-0.009628, 51.538122], zoom: 12 });
+    })
+    document.getElementById('Isoch_click').addEventListener('click', () => {
+      map.once('click', function (e) {
+        const search = { lng: e.lngLat.lng, lat: e.lngLat.lat };
+        const found = searchTree.nearest(search, 1, 20000);
+        if (found && found.length > 0) {
+          const sa = found[0][0].areaname;
+          console.log("Found:", sa);
+          updateInfo([`Location: ${e.lngLat.lng.toFixed(4)}, ${e.lngLat.lat.toFixed(4)}`], sa);
+          displayIsochrone(sa);
+        }
+      });
+    })
+    document.getElementById('Isoch_remove').addEventListener('click', () => {
+      if (geojson) {
+        geojson.features.forEach(feature => {
+          const layerId = `isochrone-${feature.properties['Travel Minutes']}`;
+          if (map.getLayer(layerId)) {
+            map.removeLayer(layerId);
+          }
+        });
+        if (map.getSource('isochrones')) {
+          map.removeSource('isochrones');
+        }
+        geojson = null;
+      }
+      updateInfo('', '')
+    })
+    document.getElementById('toggle-boroughs-housing').addEventListener('change', (e) => {
+      map.setLayoutProperty('boroughs_price', 'visibility', e.target.checked ? 'visible' : 'none');
+      document.getElementById('boroughs-legend').style.display = e.target.checked ? 'block' : 'none';
+      document.getElementById('slider-row').style.display = e.target.checked ? 'block' : 'none';
+      document.getElementById('lsoa-row').style.display = e.target.checked ? 'none' : 'block';
+    })
+    document.getElementById('toggle-housing').addEventListener('change', (e) => {
+      map.setLayoutProperty('lsoa_price', 'visibility', e.target.checked ? 'visible' : 'none');
+      document.getElementById('lsoa-legend').style.display = e.target.checked ? 'block' : 'none';
+      document.getElementById('boroughs-row').style.display = e.target.checked ? 'none' : 'block';
+    })
+    document.getElementById('slider').addEventListener('input', (e) => {
+      let year = parseInt(e.target.value);
+      updateBoroughsPriceLayer(year);
+    })
+
+    function updateBoroughsPriceLayer(year) {
+      console.log(year);
+      document.getElementById('year').innerHTML = `<b>${year}</b>`;
+
+      let source = map.getSource('boroughs_price_data');
+      if (!source) {
+        console.error("Source 'boroughs_price_data' not found.");
+        return;
+      }
+
+      let features = source._data.features; // 获取已有的数据
+      let prices = features.map(f => f.properties[year]).filter(v => v !== null && !isNaN(v));
+
+      if (prices.length === 0) {
+        console.error("Prices array is empty. Check for missing or invalid data.");
+        return;
+      }
+
+      // 计算分位数
+      let quantiles = calculateQuantiles(prices, 7);
+      console.log("Quantiles:", quantiles);
+      if (!quantiles || quantiles.length < 6) {
+        console.error("Quantile calculation failed.");
+        return;
+      }
+
+      // 创建 step 颜色表达式
+      let colorExpression = ['step', ['get', String(year)], colors[0]];
+
+      // 为每个 quantile 赋值颜色
+      for (let i = 0; i < quantiles.length; i++) {
+        colorExpression.push(quantiles[i]); // 值
+        colorExpression.push(colors[i + 1]); // 颜色
+      }
+
+      console.log("Color Expression:", colorExpression); // 调试输出
+
+      map.setPaintProperty('boroughs_price', 'fill-color', colorExpression);
+      map.setPaintProperty('boroughs_price', 'fill-opacity', 0.7);
+
+      // 更新图例
+      document.getElementById('legend-year-lowest').textContent = `£${prices[0].toLocaleString()} - £${quantiles[0].toLocaleString()}`;
+      document.getElementById('legend-year-quantile1').textContent = `£${quantiles[0].toLocaleString()} - £${quantiles[1].toLocaleString()}`;
+      document.getElementById('legend-year-quantile2').textContent = `£${quantiles[1].toLocaleString()} - £${quantiles[2].toLocaleString()}`;
+      document.getElementById('legend-year-quantile3').textContent = `£${quantiles[2].toLocaleString()} - £${quantiles[3].toLocaleString()}`;
+      document.getElementById('legend-year-quantile4').textContent = `£${quantiles[3].toLocaleString()} - £${quantiles[4].toLocaleString()}`;
+      document.getElementById('legend-year-quantile5').textContent = `£${quantiles[4].toLocaleString()} - £${quantiles[5].toLocaleString()}`;
+      document.getElementById('legend-year-highest').textContent = `£${quantiles[5].toLocaleString()} - £${prices[prices.length - 1].toLocaleString()}`;
+    }
+
+    function calculateQuantiles(prices, numQuantiles) {
+      if (prices.length < numQuantiles) {
+        console.warn(`Not enough data points (${prices.length}) for ${numQuantiles} quantiles.`);
+        return prices.length > 0 ? [prices[0], ...prices, prices[prices.length - 1]] : [];
+      }
+
+      prices.sort((a, b) => a - b);
+      let quantiles = [];
+
+      for (let i = 1; i < numQuantiles; i++) {
+        let index = Math.floor(i * prices.length / numQuantiles);
+        quantiles.push(prices[index]);
+      }
+
+      // 确保分位数数组完整
+      quantiles = [...new Set(quantiles)];
+
+      if (quantiles.length < numQuantiles - 1) {
+        console.warn("Quantiles set has too few unique values, adding min/max.");
+        if (!quantiles.includes(prices[0])) quantiles.unshift(prices[0]);
+        if (!quantiles.includes(prices[prices.length - 1])) quantiles.push(prices[prices.length - 1]);
+      }
+
+      quantiles.sort((a, b) => a - b);
+      return quantiles;
+    }
+
+
+  </script>
+</body>
+
+</html>

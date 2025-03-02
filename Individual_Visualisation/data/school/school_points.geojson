@@ -1,0 +1,146 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "University College London"
+      },
+      "geometry": {
+        "coordinates": [
+          -0.13320170624206185,
+          51.524324753247015
+        ],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-0.009628, 51.538122]
+      },
+      "properties": {
+        "name": "UCL East"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Imperial College London"
+      },
+      "geometry": {
+        "coordinates": [
+          -0.17588436986602574,
+          51.4986004875183
+        ],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "London School of Economics and Political Science"
+      },
+      "geometry": {
+        "coordinates": [
+          -0.11640955939810738,
+          51.51446488649054
+        ],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "King's College London"
+      },
+      "geometry": {
+        "coordinates": [
+          -0.11610688664444524,
+          51.51132879448505
+        ],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Queen Mary University of London"
+      },
+      "geometry": {
+        "coordinates": [
+          -0.03975246401279264,
+          51.5241298750239
+        ],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "SOAS University of London"
+      },
+      "geometry": {
+        "coordinates": [
+          -0.12889116820917934,
+          51.521849730790706
+        ],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "City, University of London"
+      },
+      "geometry": {
+        "coordinates": [
+          -0.10281485301206317,
+          51.5277202731927
+        ],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Goldsmiths, University of London"
+      },
+      "geometry": {
+        "coordinates": [
+          -0.03697392012657019,
+          51.47377396815514
+        ],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Brunel University of London"
+      },
+      "geometry": {
+        "coordinates": [
+          -0.4732790334422816,
+          51.53244852092013
+        ],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Royal Holloway, University of London"
+      },
+      "geometry": {
+        "coordinates": [
+          -0.5626019477746524,
+          51.42455279449413
+        ],
+        "type": "Point"
+      },
+      "id": 9
+    }
+  ]
+}

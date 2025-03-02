@@ -1,0 +1,25 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-0.132231, 51.524821]
+      },
+      "properties": {
+        "name": "UCL Main Campus"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-0.009628, 51.538122]
+      },
+      "properties": {
+        "name": "UCL East"
+      }
+    }
+  ]
+}

@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UK Public Transport Isochrones</title>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.0/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.0.0/mapbox-gl.js"></script>
+  <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
+  <!-- kd-tree -->
+  <script src="https://unpkg.com/kd-tree-javascript@1.0.3/kdTree-min.js"></script>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+
+  <!-- geocoder -->
+  <script
+    src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.3/mapbox-gl-geocoder.min.js"></script>
+  <link rel="stylesheet"
+    href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.3/mapbox-gl-geocoder.css" type="text/css">
+
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css" rel="stylesheet" />
+  <!-- Core theme CSS (includes Bootstrap)-->
+  <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.2.3/css/bootstrap.min.css" rel="stylesheet">
+
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    #map {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .legend {
+      padding: 10px 12px;
+      font: 16px Arial, Helvetica, sans-serif;
+      background: white;
+      background: rgba(255, 255, 255, 0.8);
+      line-height: 28px;
+      color: #555;
+      position: absolute;
+      bottom: 30px;
+      left: 10px;
+      z-index: 1;
+    }
+
+    .legend h4 {
+      text-align: left;
+      font-size: 18px;
+      margin: 6px 0px;
+      color: #777;
+    }
+
+    .legend span {
+      position: relative;
+      bottom: 3px;
+    }
+
+    .legend i {
+      width: 22px;
+      height: 22px;
+      float: left;
+      margin: 0 10px 0 0;
+      opacity: 0.7;
+    }
+
+    .info {
+      padding: 6px 8px;
+      font: 14px/16px sans-serif;
+      background: white;
+      background: rgba(255, 255, 255, 0.8);
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+      border-radius: 5px;
+      width: 250px;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding-bottom: 20px;
+      z-index: 1;
+    }
+
+    .search-marker {
+      color: rgba(32, 106, 190, 1);
+    }
+
+    .start-marker {
+      color: rgba(36, 161, 26, 1);
+    }
+
+    .mapboxgl-popup {
+      max-width: 300px;
+      font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+    }
+
+    .mapboxgl-popup-content {
+      padding: 4px;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 10px;
+      box-shadow: cadetblue 0px 0px 10px;
+    }
+
+    .mapboxgl-popup-close-button {
+      font-size: 16px;
+      color: #333;
+      top: 5px;
+      right: 5px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+  <div class="info">
+    <div id="info">
+      <b>Click <i class="fa fa-search"></i> below to search</b><br />
+      The map will show areas you can reach from the location using public transport
+    </div>
+    <div style="margin-top: 20px;">
+      <b>Control Isochrone Map: </b>
+      <div class="dropdown my-2">
+        <button class="btn btn-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown"
+          aria-expanded="false" style="font-size: 13px;">
+          Isochrone Map of Campus
+        </button>
+        <ul class="dropdown-menu dropdown-menu-dark">
+          <li><a class="dropdown-item CampusLink" style="font-size: 14px;" id="ucl" href="#">UCL Main</a></li>
+          <li><a class="dropdown-item CampusLink" style="font-size: 14px;" id="ucleast" href="#">UCL East</a></li>
+          <li><a class="dropdown-item CampusLink" style="font-size: 14px;" id="imperial" href="#">IC</a></li>
+          <li><a class="dropdown-item CampusLink" style="font-size: 14px;" id="lse" href="#">LSE</a></li>
+          <li><a class="dropdown-item CampusLink" style="font-size: 14px;" id="kcl" href="#">KCL</a></li>
+          <li><a class="dropdown-item CampusLink" style="font-size: 14px;" id="soas" href="#">SOAS</a></li>
+          <li><a class="dropdown-item CampusLink" style="font-size: 14px;" id="qmul" href="#">QMUL</a></li>
+          <li><a class="dropdown-item CampusLink" style="font-size: 14px;" id="city" href="#">City</a></li>
+          <li><a class="dropdown-item CampusLink" style="font-size: 14px;" id="goldsmiths" href="#">Goldsmiths</a></li>
+          <li><a class="dropdown-item CampusLink" style="font-size: 14px;" id="brunel" href="#">Brunel</a></li>
+          <li><a class="dropdown-item CampusLink" style="font-size: 14px;" id="royalholloway" href="#">Royal
+              Holloway</a></li>
+        </ul>
+      </div>
+      <button id="Isoch_click" class="btn btn-primary btn-sm mt-2" style="font-size: 13px;">Click to display Isochrone Map</button> <br><br>
+      <button id="Isoch_remove" class="btn btn-danger btn-sm" style="font-size: 13px;">Remove current Isochrone Map</button> <br><br>
+    </div>
+  </div>
+
+  <div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="toast-header">
+        <i class="bi bi-bell-fill text-primary me-2"></i> <!-- Bootstrap 官方铃铛图标 -->
+        <strong class="me-auto">Notification</strong>
+        <small id="toastTime"></small> <!-- 这里会填充时间 -->
+        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+      <div class="toast-body">
+        Welcome to use Isochrone Map! <br> Click legend to filter!
+      </div>
+    </div>
+  </div>
+
+
+  <div class="legend" id="legend">
+    <h4>Area accessible in:</h4>
+    <b>click to filter</b><br>
+    <i onclick="legendClicked(this, 15)" style="background: rgb(254, 203, 28);"></i><span
+      onclick="legendClicked(this, 15)">15 minutes</span><br>
+    <i onclick="legendClicked(this, 30)" style="background: rgb(253, 105, 12);"></i><span
+      onclick="legendClicked(this, 30)">30 minutes</span><br>
+    <i onclick="legendClicked(this, 45)" style="background: rgb(191, 0, 23);"></i><span
+      onclick="legendClicked(this, 45)">45 minutes</span><br>
+    <i onclick="legendClicked(this, 60)" style="background: rgb(85, 0, 77);"></i><span
+      onclick="legendClicked(this, 60)">60 minutes</span><br>
+  </div>
+
+  <script>
+    let geojson = null;
+    let areas = null;
+    let searchTree = null;
+    let customData = null;
+    let hoveredFeatureId = null;
+    let price = null;
+    let coordinates = null;
+
+    const chapters = {
+      ucl: { center: [-0.13320, 51.52432], zoom: 11 },
+      ucleast: { center: [-0.00962, 51.53812], zoom: 11 },
+      imperial: { center: [-0.17588, 51.49860], zoom: 11 },
+      lse: { center: [-0.11641, 51.51446], zoom: 11 },
+      kcl: { center: [-0.11611, 51.51133], zoom: 11 },
+      soas: { center: [-0.12889, 51.52185], zoom: 11 },
+      qmul: { center: [-0.03975, 51.52413], zoom: 11 },
+      city: { center: [-0.10281, 51.52772], zoom: 11 },
+      goldsmiths: { center: [-0.03697, 51.47377], zoom: 11 },
+      brunel: { center: [-0.47328, 51.53245], zoom: 11 },
+      royalholloway: { center: [-0.56260, 51.42455], zoom: 11 }
+    };
+
+    mapboxgl.accessToken = 'pk.eyJ1IjoieXV1eSIsImEiOiJjbTV6Nm9oMTgwMTZoMmpzZHNreGVrc3VsIn0.ohpsCdG3ASwD2ViFYw4e9g';
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/standard',
+      center: [-0.132231, 51.524821],
+      zoom: 10
+    });
+
+    map.on('load', () => {
+      //#region student apartments
+      map.addSource('stu-apart', {
+        type: 'geojson',
+        data: customData,
+        generateId: true
+      })
+      map.addLayer({
+        id: 'student-apartments',
+        type: 'circle',
+        source: 'stu-apart',
+        paint: {
+          'circle-radius': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            10, 2,  // 在 zoom 13 时，点的半径为 2
+            17, 7
+          ],
+          'circle-color': 'rgb(0, 0, 0)',
+          'circle-stroke-width': [
+            'case',
+            ['boolean', ['feature-state', 'hover'], false],
+            4,
+            2
+          ],
+          'circle-stroke-color': 'rgb(0, 0, 0)'
+        }
+      });
+      map.on('mouseenter', 'student-apartments', function (e) {
+        map.getCanvas().style.cursor = 'pointer';
+        const coordinates = e.features[0].geometry.coordinates.slice();
+        const description = e.features[0].properties.name;
+        while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+          coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+        }
+        hoveredFeatureId = e.features[0].id;
+        map.setFeatureState({ source: 'stu-apart', id: hoveredFeatureId }, { hover: true });
+        new mapboxgl.Popup({ closeButton: false })
+          .setLngLat(coordinates)
+          .setHTML(`<h6>🏠Student apartment</h6><b>${description}</b>`)
+          .addTo(map);
+      });
+      map.on('mouseleave', 'student-apartments', function () {
+        map.getCanvas().style.cursor = '';
+        document.querySelector('.mapboxgl-popup').remove();
+        if (hoveredFeatureId) {
+          map.setFeatureState({ source: 'stu-apart', id: hoveredFeatureId }, { hover: false });
+          hoveredFeatureId = null;
+        }
+      });
+      //#endregion
+
+      //#region school
+      fetch('./data/school/school_points.geojson')
+        .then(response => response.json())
+        .then(data => {
+          map.addSource('schools_data', {
+            type: 'geojson',
+            data: data
+          })
+          map.addLayer({
+            id: 'school_points',
+            type: 'circle',
+            source: 'schools_data',
+            paint: {
+              // 控制点的颜色和大小
+              'circle-color': 'red',  // 点的颜色
+              'circle-radius': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                10,  // 在 zoom 10 时，点的半径为 5
+                4,
+                15,  // 在 zoom 15 时，点的半径为 15
+                12
+              ],
+              'circle-opacity': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                10,  // 在 zoom 10 时，点的透明度为 0.5
+                0.5,
+                15,  // 在 zoom 15 时，点的透明度为 1
+                1
+              ]
+            }
+          })
+        })
+      // Change the cursor to a pointer when the mouse is over the places layer.
+      map.on('mouseenter', 'school_points', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      })
+      map.on('mouseleave', 'school_points', () => {
+        map.getCanvas().style.cursor = '';
+      })
+      // 校区点击事件
+      map.on('click', 'school_points', (e) => {
+        coordinates = e.features[0].geometry.coordinates.slice();
+        var name = e.features[0].properties.name;
+        // Ensure that if the map is zoomed out such that multiple
+        // copies of the feature are visible, the popup appears
+        // over the copy being pointed to.
+        while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+          coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+        }
+        new mapboxgl.Popup()
+          .setLngLat(coordinates)
+          // .setHTML(`<h4>${name}</h4><p>3D Buildings shown around this point are the campus of <b>${name}</b>.</p>`)
+          .setHTML(`<h6>🏫University:</h6><b>${name}</b>`)
+          .addTo(map);
+      });
+      //#endregion
+    })
+
+    //#region isochrone 
+
+    const opacity = 150;
+    const colours = { 15: "rgb(254, 203, 28)", 30: "rgb(253, 105, 12)", 45: "rgb(191, 0, 23)", 60: "rgb(85, 0, 77)" };
+    const opacities = { 15: (opacity / 255.0), 30: (opacity / 255.0), 45: (opacity / 255.0), 60: (opacity / 255.0) };
+
+    function isochroneGetColor(d) {
+      return colours[d];
+    }
+
+    function isochroneGetOpacity(d) {
+      return opacities[d];
+    }
+
+    function isochroneStyle(feature) {
+      return {
+        'fill-color': isochroneGetColor(feature.properties['Travel Minutes']),
+        'fill-opacity': isochroneGetOpacity(feature.properties['Travel Minutes']),
+        'fill-outline-color': '#000'
+      };
+    }
+
+    function legendClicked(element, num) {
+      if (geojson) {
+        const is = document.querySelectorAll('.legend i');
+        for (let n = 0; n <= 3; n++) {
+          let mins = (n + 1) * 15;
+          //如果是，则将对应时间段的透明度设置为 opacity / 255.0，并将图例项的透明度设置为 1
+          if (mins <= num) {
+            opacities[mins] = (opacity / 255.0);
+            is[n].style.opacity = 1;
+          } else {
+            opacities[mins] = 0;
+            is[n].style.opacity = 0.2;
+          }
+        }
+        geojson.features.forEach(feature => {
+          const layerId = `isochrone-${feature.properties['Travel Minutes']}`;
+          if (map.getLayer(layerId)) {
+            // 更新该图层的填充透明度。
+            map.setPaintProperty(layerId, 'fill-opacity', isochroneGetOpacity(feature.properties['Travel Minutes']));
+          }
+        });
+      }
+    }
+
+    function loadJson(url, callback) {
+      return fetch(url) // 发起一个网络请求，获取指定 URL 的数据
+        .then(response => response.json()) // 将响应解析为 JSON 对象
+        .then(data => callback(data)) // 将解析后的 JSON 数据传递给回调函数
+        .catch(error => console.error('Error loading JSON:', error)); // 如果请求失败，输出错误信息
+    }
+
+    function distance(a, b) {
+      return turf.distance(turf.point([a.lng, a.lat]), turf.point([b.lng, b.lat]));
+    }
+
+    window.onload = function () {
+      loadJson('https://ni-travel-isochrones.s3.eu-west-2.amazonaws.com/all-area-centres.geojson', function (data) {
+        areas = turf.featureCollection(data.features);
+        //kdTree 是一种用于多维空间中快速搜索的树形数据结构。在这里，它用于地理空间搜索。
+        searchTree = new kdTree(data.features.map(feature => ({
+          lat: feature.geometry.coordinates[1],
+          lng: feature.geometry.coordinates[0],
+          areaname: feature.properties.areaname
+        })), distance, ["lat", "lng"]);
+
+        const searchParam = new URLSearchParams(location.search).get('sa');
+        if (searchParam) {
+          const feature = data.features.find(f => f.properties.areaname === searchParam);
+          if (feature) {
+            updateInfo([], searchParam);
+            displayIsochrone(searchParam);
+          }
+        }
+      });
+    };
+
+    function displayIsochrone(sa) {
+      loadJson(`https://ni-travel-isochrones.s3.eu-west-2.amazonaws.com/${sa}.geojson`, function (out) {
+        console.log(out);
+        out.features.sort((a, b) => b.properties['Travel Minutes'] - a.properties['Travel Minutes']);
+        if (geojson) {
+          out.features.forEach(feature => {
+            const layerId = `isochrone-${feature.properties['Travel Minutes']}`;
+            if (map.getLayer(layerId)) {
+              map.removeLayer(layerId);
+            }
+          });
+          if (map.getSource('isochrones')) {
+            map.removeSource('isochrones');
+          }
+        }
+        geojson = out;
+        map.addSource('isochrones', { type: 'geojson', data: out });
+        out.features.forEach(feature => {
+          map.addLayer({
+            id: `isochrone-${feature.properties['Travel Minutes']}`,
+            type: 'fill',
+            source: 'isochrones',
+            paint: isochroneStyle(feature),
+            filter: ['==', ['get', 'Travel Minutes'], feature.properties['Travel Minutes']]
+          });
+        });
+      });
+    }
+
+    const info = document.getElementById('info');
+
+    function updateInfo(address, sa) {
+      const url = `${location.protocol}//${location.host}${location.pathname}?sa=${sa ? sa : ''}`;
+      info.innerHTML = (
+        (address.length > 0 ? `<b>${address[0].trim()}</b>` : '<b>Click below to search</b><br />The map will show areas you can reach from the location using public transport<br />') +
+        (address.length > 1 ? `${address[1].trim()}<br />` : '') +
+        (address.length > 2 ? `${address[2].trim()}<br />` : '') +
+        (sa ? `${sa}&ensp;<i class="fa fa-map-marker start-marker"></i><br />` : '')
+      )
+    }
+
+    // 处理搜索结果
+    function handleSearchResult(lon, lat, placeName) {
+      if (isNaN(lon) || isNaN(lat)) {
+        console.error("Invalid coordinates:", lon, lat);
+        return;
+      }
+      // 构造搜索点
+      const search = { lng: lon, lat: lat };
+      const found = searchTree.nearest(search, 1, 20000);
+      if (found && found.length > 0) {
+        const sa = found[0][0].areaname;
+        console.log("Found:", sa);
+        updateInfo(placeName.split(','), sa);
+        displayIsochrone(sa);
+      }
+    }
+
+    //#endregion
+
+    //#region local geocoder
+    const geocoder = new MapboxGeocoder({
+      accessToken: mapboxgl.accessToken,
+      placeholder: 'Search student apartments',
+      localGeocoder: forwardGeocoder,
+      mapboxgl: mapboxgl,
+      marker: false,
+      bbox: [-9.0, 49.75, 2.01, 61.01], // 限制搜索范围（英国）
+      // 屏幕上出现位置
+    });
+    map.addControl(geocoder, 'top-right');
+    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    map.addControl(new mapboxgl.ScaleControl(), 'bottom-right');
+
+    // 监听搜索输入
+    geocoder.on('result', function (e) {
+      const lon = e.result.center[0];
+      const lat = e.result.center[1];
+      const placeName = e.result.place_name;
+      console.log(e, lon, lat, placeName);
+      handleSearchResult(lon, lat, placeName);
+    });
+
+    // Load custom data to supplement the search results.
+    // 加载本地学生公寓geojson数据文件
+    fetch('./data/Student_Apartments.geojson')
+      .then(response => response.json())
+      .then(data => {
+        customData = data;
+        console.log(customData);
+      })
+      .catch(error => console.error('Error loading local GeoJSON:', error));
+
+    function forwardGeocoder(query) {
+      const matchingFeatures = [];
+      if (customData) {
+        for (const feature of customData.features) {
+          // 处理与源数据不同大小写的查询
+          if (feature.properties.name.toLowerCase().includes(query.toLowerCase())) {
+            // 使用 carmen geojson 格式为自定义数据结果添加树形表情符号作为前缀
+            feature['place_name'] = `🏠 ${feature.properties.name}`;
+            feature['center'] = feature.geometry.coordinates;
+            feature['place_type'] = ['student apartment'];
+            matchingFeatures.push(feature);
+          }
+        }
+      }
+      return matchingFeatures;
+    }
+    //#endregion
+
+    document.querySelectorAll('.CampusLink').forEach(link => {
+      link.addEventListener('click', (e) => {
+        const id = e.target.id;
+        console.log("Campus:", id);
+        const chapter = chapters[id];
+        // updateInfo([`Campus: ${id}`], id);
+        handleSearchResult(chapter.center[0], chapter.center[1], `🏫 Campus: ${id}`);
+        map.flyTo({ center: chapter.center, zoom: chapter.zoom });
+      })
+    })
+
+    document.getElementById('Isoch_click').addEventListener('click', () => {
+      map.once('click', function (e) {
+        const search = { lng: e.lngLat.lng, lat: e.lngLat.lat };
+        const found = searchTree.nearest(search, 1, 20000);
+        if (found && found.length > 0) {
+          const sa = found[0][0].areaname;
+          console.log("Found:", sa);
+          updateInfo([`Location: ${e.lngLat.lng.toFixed(4)}, ${e.lngLat.lat.toFixed(4)}`], sa);
+          displayIsochrone(sa);
+        }
+      });
+    });
+
+    document.getElementById('Isoch_remove').addEventListener('click', () => {
+      if (geojson) {
+        geojson.features.forEach(feature => {
+          const layerId = `isochrone-${feature.properties['Travel Minutes']}`;
+          if (map.getLayer(layerId)) {
+            map.removeLayer(layerId);
+          }
+        });
+        if (map.getSource('isochrones')) {
+          map.removeSource('isochrones');
+        }
+        geojson = null;
+      }
+      updateInfo('', '')
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+      const toastLiveExample = document.getElementById('liveToast');
+      const toastTime = document.getElementById("toastTime");
+
+      // 获取当前时间并格式化
+      const now = new Date();
+      const options = { year: "numeric", month: "long", day: "numeric", hour: "2-digit"};
+      toastTime.innerText = now.toLocaleDateString("en-US", options);
+
+      const toast = new bootstrap.Toast(toastLiveExample, {
+        autohide: false // 禁用自动隐藏
+      });
+      toast.show(); // 页面加载时自动显示
+    });
+
+
+  </script>
+
+  <!-- Bootstrap core JS-->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+
+</html>

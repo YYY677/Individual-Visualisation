@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@mapbox-controls/ruler": "^3.0.0"
+  }
+}

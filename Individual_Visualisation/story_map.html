@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>Fly to a location based on scroll position</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.css" rel="stylesheet" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.js"></script>
+  <!-- Bootstrap Icons-->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css" rel="stylesheet" />
+  <!-- Core theme CSS (includes Bootstrap)-->
+  <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.2.3/css/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    #map {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 100%;
+    }
+
+    .tool {
+      position: fixed;
+      top: 1vh;
+      left: 1vw;
+      height: auto;
+      width: auto;
+    }
+
+    #map {
+      position: fixed;
+      width: 70%;
+    }
+
+    #features {
+      width: 30%;
+      margin-left: 70%;
+      font-family: sans-serif;
+      overflow-y: scroll;
+      background-color: #fafafa;
+    }
+
+    section {
+      padding: 6vh 2vw;
+      line-height: 25px;
+      border-bottom: 1px solid #ddd;
+      opacity: 0.25;
+      font-size: 1.8vh;
+    }
+
+    section.active {
+      opacity: 1;
+    }
+
+    section:first-child {
+      border-bottom: none;
+      margin-top: 20vh;
+    }
+
+    section:last-child {
+      border-bottom: none;
+      margin-bottom: 60vh;
+    }
+
+    .mapboxgl-popup {
+      max-width: 300px;
+      font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+    }
+
+    .mapboxgl-popup-content {
+      padding: 4px;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 10px;
+      box-shadow: cadetblue 0px 0px 10px;
+    }
+
+    .mapboxgl-popup-close-button {
+      font-size: 16px;
+      color: #333;
+      top: 5px;
+      right: 5px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+  <div class="tool">
+    <div class="btn-group dropend">
+      <button class="btn btn-info dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        Choose!
+      </button>
+      <ul class="dropdown-menu dropdown-menu-dark">
+        <li><a class="dropdown-item" href="#intro">Introduction</a></li>
+        <li><a class="dropdown-item" href="#ucl">University College London (UCL)</a></li>
+        <li><a class="dropdown-item" href="#imperial">Imperial College London</a></li>
+        <li><a class="dropdown-item" href="#lse">London School of Economics and Political Science (LSE)</a></li>
+        <li><a class="dropdown-item" href="#kcl">King's College London (KCL)</a></li>
+        <li><a class="dropdown-item" href="#soas">SOAS University of London</a></li>
+        <li><a class="dropdown-item" href="#qmul">Queen Mary University of London (QMUL)</a></li>
+        <li><a class="dropdown-item" href="#city">City, University of London</a></li>
+        <li><a class="dropdown-item" href="#goldsmiths">Goldsmiths, University of London</a></li>
+        <li><a class="dropdown-item" href="#brunel">Brunel University London</a></li>
+        <li><a class="dropdown-item" href="#royalholloway">Royal Holloway, University of London</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div id="features">
+
+    <section id="intro" class="active">
+      <h3>London Universities</h3>
+      <p>London is home to many prestigious universities, offering a wide range of programs and research opportunities.
+        Explore some of the top universities in London and learn about their unique strengths and contributions to the
+        academic community.</p>
+    </section>
+
+    <section id="ucl">
+      <h3>University College London (UCL)</h3>
+      <p>Founded in 1826, UCL is a leading multidisciplinary university known for its research excellence in science,
+        medicine, engineering, and humanities. It consistently ranks among the top universities globally. <a
+          href="https://www.ucl.ac.uk/" target="_blank">Official Website</a></p>
+    </section>
+
+    <section id="imperial">
+      <h3>Imperial College London</h3>
+      <p>Imperial College London is a world-class institution specializing in science, technology, engineering, and
+        medicine (STEM). It has a strong entrepreneurial culture and deep industry connections. <a
+          href="https://www.imperial.ac.uk/" target="_blank">Official Website</a></p>
+    </section>
+
+    <section id="lse">
+      <h3>London School of Economics and Political Science (LSE)</h3>
+      <p>LSE is one of the world’s leading social science universities, renowned for economics, political science, and
+        international relations. It has strong global ties, with many alumni holding influential positions worldwide. <a
+          href="https://www.lse.ac.uk/" target="_blank">Official Website</a></p>
+    </section>
+
+    <section id="kcl">
+      <h3>King's College London (KCL)</h3>
+      <p>Founded in 1829, King’s College London is a prestigious institution with strengths in humanities, law,
+        medicine, and social sciences. It has five campuses across central London, including one on the iconic Strand.
+        <a href="https://www.kcl.ac.uk/" target="_blank">Official Website</a>
+      </p>
+    </section>
+
+    <section id="soas">
+      <h3>SOAS University of London</h3>
+      <p>SOAS specializes in the study of Asia, Africa, and the Middle East, offering unique programs in linguistics,
+        international studies, and anthropology. It is a key center for global and regional studies. <a
+          href="https://www.soas.ac.uk/" target="_blank">Official Website</a></p>
+    </section>
+
+    <section id="qmul">
+      <h3>Queen Mary University of London (QMUL)</h3>
+      <p>Queen Mary is a member of the Russell Group, known for its strong research and teaching in medicine, law,
+        engineering, and business. Located in East London, it boasts a diverse student community and a commitment to
+        high-quality education. <a href="https://www.qmul.ac.uk/" target="_blank">Official Website</a></p>
+    </section>
+
+    <section id="city">
+      <h3>City, University of London</h3>
+      <p>City University is renowned for its strong business school (Bayes Business School), as well as its programs in
+        journalism, law, and engineering. It maintains a professional focus with extensive industry connections. <a
+          href="https://www.city.ac.uk/" target="_blank">Official Website</a></p>
+    </section>
+
+    <section id="goldsmiths">
+      <h3>Goldsmiths, University of London</h3>
+      <p>Goldsmiths is celebrated for its excellence in arts, humanities, and social sciences. It fosters a vibrant
+        creative community and is particularly noted for its programs in media, design, and cultural studies. <a
+          href="https://www.gold.ac.uk/" target="_blank">Official Website</a></p>
+    </section>
+
+    <section id="brunel">
+      <h3>Brunel University London</h3>
+      <p>Brunel University emphasizes engineering, design, and business, integrating work placements into many of its
+        courses to enhance employability. <a href="https://www.brunel.ac.uk/" target="_blank">Official Website</a></p>
+    </section>
+
+    <section id="royalholloway">
+      <h3>Royal Holloway, University of London</h3>
+      <p>Located just outside London, Royal Holloway is renowned for its programs in humanities, arts, and social
+        sciences. Its historic campus is among the most picturesque university settings in the UK. <a
+          href="https://www.royalholloway.ac.uk/" target="_blank">Official Website</a></p>
+    </section>
+  </div>
+
+  <script>
+    // TO MAKE THE MAP APPEAR YOU MUST
+    // ADD YOUR ACCESS TOKEN FROM
+    // https://account.mapbox.com
+    mapboxgl.accessToken =
+      "pk.eyJ1IjoieXV1eSIsImEiOiJjbTV6Nm9oMTgwMTZoMmpzZHNreGVrc3VsIn0.ohpsCdG3ASwD2ViFYw4e9g";
+    const map = new mapboxgl.Map({
+      container: "map",
+      // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
+      style: "mapbox://styles/mapbox/streets-v12",
+      center: [-0.15, 51.45],
+      zoom: 9.2
+    });
+    map.addControl(new mapboxgl.NavigationControl());
+    map.addControl(new mapboxgl.ScaleControl());
+
+    map.on('load', function () {
+
+      //#region 3D Buildings
+      // Insert the layer beneath any symbol layer.
+      const layers = map.getStyle().layers;
+      const labelLayerId = layers.find(
+        (layer) => layer.type === 'symbol' && layer.layout['text-field']
+      ).id;
+
+      map.addLayer(
+        {
+          'id': 'university-buildings',
+          'source': 'composite',
+          'source-layer': 'building',
+          'filter': ['==', ['get', 'type'], 'university'], // 只显示大学建筑
+          'type': 'fill-extrusion',
+          'minzoom': 14, // 14 级以上显示
+          'paint': {
+            'fill-extrusion-color': '#fafafa', // 高亮红色
+            'fill-extrusion-height': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              13.5, 0,   // 13.5级及以下，不显示
+              14, 5,     // 14级，建筑高度5m（让它慢慢显现）
+              15.5, ['get', 'height'] // 15.5级时，恢复真实高度
+            ],
+            'fill-extrusion-base': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              13.5, 0,
+              14, 0,
+              15.5, ['get', 'min_height']
+            ],
+            'fill-extrusion-opacity': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              13.5, 0,   // 13.5级及以下完全透明
+              14, 0.3,   // 14级时，30% 透明度（半透明效果）
+              15, 0.8  // 15.5级时，不透明
+            ]
+          }
+        },
+        labelLayerId
+      );
+      map.on('click', function (e) {
+        let features = map.queryRenderedFeatures(e.point, { layers: ['university-buildings'] });
+
+        console.log("Features:", features);
+
+        if (features.length > 0) {
+          let buildingID = features[0].id; // 直接取 feature.id
+          console.log("Building ID:", buildingID);
+
+          if (buildingID !== undefined) {
+            map.setPaintProperty('university-buildings', 'fill-extrusion-color', [
+              'case',
+              ['==', ['id'], buildingID], 'red', // 点击的建筑设置为红色
+              '#fafafa' // 其他建筑保持原颜色
+            ]);
+          }
+          new mapboxgl.Popup({ closeOnClick: true, closeButton: false, closeOnMove: true })
+            .setLngLat(e.lngLat)
+            .setHTML(`<b>Building Type</b>: ${features[0].properties.type}<br>
+              <b>Building Height</b>: ${features[0].properties.height} m`)
+            .addTo(map);
+        }
+      });
+      map.on('mouseenter', 'university-buildings', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      map.on('mouseleave', 'university-buildings', () => {
+        map.getCanvas().style.cursor = '';
+      });
+      //#endregion
+
+      //#region school
+      fetch('./data/school/school_points.geojson')
+        .then(response => response.json())
+        .then(data => {
+          map.addSource('schools_data', {
+            type: 'geojson',
+            data: data
+          })
+          map.addLayer({
+            id: 'school_points',
+            type: 'circle',
+            source: 'schools_data',
+            paint: {
+              // 控制点的颜色和大小
+              'circle-color': 'red',  // 点的颜色
+              'circle-radius': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                10,  // 在 zoom 10 时，点的半径为 5
+                2,
+                15,  // 在 zoom 15 时，点的半径为 15
+                6
+              ],
+              'circle-opacity': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                10,  // 在 zoom 10 时，点的透明度为 0.5
+                0.5,
+                15,  // 在 zoom 15 时，点的透明度为 1
+                1
+              ]
+            }
+          })
+        })
+      // Change the cursor to a pointer when the mouse is over the places layer.
+      map.on('mouseenter', 'school_points', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      })
+      map.on('mouseleave', 'school_points', () => {
+        map.getCanvas().style.cursor = '';
+      })
+      // 校区点击事件
+      map.on('click', 'school_points', (e) => {
+        coordinates = e.features[0].geometry.coordinates.slice();
+        var name = e.features[0].properties.name;
+        // Ensure that if the map is zoomed out such that multiple
+        // copies of the feature are visible, the popup appears
+        // over the copy being pointed to.
+        while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+          coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+        }
+        new mapboxgl.Popup()
+          .setLngLat(coordinates)
+          // .setHTML(`<h4>${name}</h4><p>3D Buildings shown around this point are the campus of <b>${name}</b>.</p>`)
+          .setHTML(`<b>${name}</b><p>3D Buildings shown around this point are the campus.</p>`)
+          .addTo(map);
+      });
+      //#endregion
+    })
+
+    const chapters = {
+      intro: { center: [-0.15, 51.45], zoom: 9.2, pitch: 0, bearing: 0 },
+      ucl: { center: [-0.13320, 51.52432], zoom: 15.5, pitch: 45, bearing: -35 },
+      imperial: { center: [-0.17588, 51.49860], zoom: 15.5, pitch: 45, bearing: -90 },
+      lse: { center: [-0.11641, 51.51446], zoom: 15.5, pitch: 45, bearing: -20 },
+      kcl: { center: [-0.11611, 51.51133], zoom: 15.5, pitch: 45, bearing: -20 },
+      soas: { center: [-0.12889, 51.52185], zoom: 15.5, pitch: 45, bearing: -35 },
+      qmul: { center: [-0.03975, 51.52413], zoom: 15.5, pitch: 45, bearing: -40 },
+      city: { center: [-0.10281, 51.52772], zoom: 15.5, pitch: 45, bearing: -40 },
+      goldsmiths: { center: [-0.03697, 51.47377], zoom: 15.5, pitch: 45, bearing: -40 },
+      brunel: { center: [-0.47328, 51.53245], zoom: 15.5, pitch: 45, bearing: -90 },
+      royalholloway: { center: [-0.56260, 51.42455], zoom: 15.5, pitch: 45, bearing: -40 }
+    };
+
+    let activeChapterName = null; // 初始状态下没有任何章节被激活
+    let isUserScrolling = false;
+    let scrollTimeout;
+
+    function setActiveChapter(chapterName, fromClick = false) {
+      if (chapterName === activeChapterName) return;
+
+      map.flyTo(chapters[chapterName]);
+
+      if (activeChapterName) {
+        document.getElementById(activeChapterName).classList.remove("active");
+      }
+      document.getElementById(chapterName).classList.add("active");
+
+      activeChapterName = chapterName;
+
+      // 如果是点击触发，暂时禁用滚动监听，避免冲突
+      if (fromClick) {
+        isUserScrolling = true;
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(() => {
+          isUserScrolling = false;
+        }, 1000); // 1 秒后恢复滚动监听
+      }
+    }
+
+    function isElementOnScreen(id) {
+      const element = document.getElementById(id);
+      if (!element) return false;
+
+      const bounds = element.getBoundingClientRect();
+      const elementCenter = bounds.top + bounds.height / 3;
+      return elementCenter < window.innerHeight && elementCenter > 0;
+    }
+
+    // 限制 onscroll 触发频率
+    let ticking = false;
+    window.addEventListener("scroll", () => {
+      if (ticking || isUserScrolling) return;
+
+      ticking = true;
+      requestAnimationFrame(() => {
+        for (const chapterName in chapters) {
+          if (isElementOnScreen(chapterName)) {
+            setActiveChapter(chapterName);
+            break;
+          }
+        }
+        ticking = false;
+      });
+    });
+
+    // 点击 section 时，平滑滚动 + 切换章节
+    document.querySelectorAll("section").forEach((section) => {
+      section.addEventListener("click", () => {
+        setActiveChapter(section.id, true);
+        document
+          .getElementById(section.id)
+          .scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    });
+  </script>
+  <!-- Bootstrap core JS-->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

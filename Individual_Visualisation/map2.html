@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>1 小时出行圈</title>
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.0.0/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.0/mapbox-gl.css" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    #map {
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+  <script>
+    mapboxgl.accessToken = 'pk.eyJ1IjoieXV1eSIsImEiOiJjbTV6Nm9oMTgwMTZoMmpzZHNreGVrc3VsIn0.ohpsCdG3ASwD2ViFYw4e9g';
+
+    var map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/streets-v11',
+      center: [-0.1276, 51.5074], // 伦敦中心
+      zoom: 10
+    });
+
+    // 调用 Isochrone API
+    fetch('https://api.mapbox.com/isochrone/v1/mapbox/walking/-0.1276,51.5074?contours_minutes=60&polygons=true&access_token=pk.eyJ1IjoieXV1eSIsImEiOiJjbTV6Nm9oMTgwMTZoMmpzZHNreGVrc3VsIn0.ohpsCdG3ASwD2ViFYw4e9g')
+      .then(response => response.json())
+      .then(data => {
+        map.addSource('isochrone', { type: 'geojson', data: data });
+        map.addLayer({
+          id: 'isochrone-layer',
+          type: 'fill',
+          source: 'isochrone',
+          layout: {},
+          paint: { 'fill-color': '#ffcc00', 'fill-opacity': 0.4 }
+        });
+      });
+  </script>
+</body>
+
+</html>
