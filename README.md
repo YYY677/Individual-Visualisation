@@ -13,7 +13,7 @@ It offers essential insights into various aspects of the city—from transportat
 times to housing prices—empowering students to make an informed decision about where to live.
 
 > [!IMPORTANT]
-> More aspects will be added in the future.
+> **More aspects will be added in the future.**
 
 ## Outline the design and technical approach taken
 ### Outline the design
