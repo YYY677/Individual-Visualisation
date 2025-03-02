@@ -1,5 +1,7 @@
 # A short introduction for this project
 
+## [Check this project](https://yyy677.github.io/Individual-Visualisation/)
+
 ## Why develop this project?
 - To enhance my web development skills and become proficient with WebGIS-related APIs.
 - To serve as a foundational base for my graduate design.
