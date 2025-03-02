@@ -1,14 +1,17 @@
 # A short introduction for this project
 
 ## Why develop this project?
-- Improve my website building ability and familiarize with webgis related API
-- As a very basical base for my graduate design 
-- As an answer for an assessment(Individual Visualisation of CASA0003 Mini Project)
+- To enhance my web development skills and become proficient with WebGIS-related APIs.
+- To serve as a foundational base for my graduate design.
+- To answer the CASA0003 Mini Project assessment (Individual Visualisation).
 
 ## What the visualisation is aiming to show?
-This project is aiming to provide a platform for students who will study in London in the future, 
-which helps them get some information about London, in terms of transport net, commute time, housing price and so forth, 
-helping them make a final choice for where they live.
+This project provides a comprehensive platform for prospective students planning to study in London. 
+It offers essential insights into various aspects of the city—from transportation networks and commute
+times to housing prices—empowering students to make an informed decision about where to live.
+
+> [!IMPORTANT]
+> More aspects will be added in the future.
 
 ## Outline the design and technical approach taken
 ### Outline the design
@@ -28,11 +31,11 @@ are enriched with extensive interactive features—inviting you to explore.
 - Turf.js: Geospatial analysis library for processing and analyzing spatial data.
 
 ## Data source
-1. Transport Data: https://gis-tfl.opendata.arcgis.com
-2. Isochrone Map references this project: https://github.com/pbarber/uk-isochrones-map
-3. Boroughs property data: https://data.london.gov.uk/dataset/uk-house-price-index
-4. Boroughs rental data: https://www.ons.gov.uk/economy/inflationandpriceindices/datasets/priceindexofprivaterentsukmonthlypricestatistics
-5. LSOAs property data: https://www.ons.gov.uk/peoplepopulationandcommunity/housing/datasets/medianpricepaidbylowerlayersuperoutputareahpssadataset46
+1. [Transport Data](https://gis-tfl.opendata.arcgis.com)
+2. [Isochrone Map references this project](https://github.com/pbarber/uk-isochrones-map)
+3. [Boroughs property data](https://data.london.gov.uk/dataset/uk-house-price-index)
+4. [Boroughs rental data](https://www.ons.gov.uk/economy/inflationandpriceindices/datasets/priceindexofprivaterentsukmonthlypricestatistics)
+5. [LSOAs property data](https://www.ons.gov.uk/peoplepopulationandcommunity/housing/datasets/medianpricepaidbylowerlayersuperoutputareahpssadataset46)
 
 
 
