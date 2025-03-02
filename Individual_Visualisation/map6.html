@@ -319,6 +319,7 @@
     });
 
     map.on('load', () => {
+
       //#region student apartments
       map.addSource('stu-apart', {
         type: 'geojson',
@@ -693,7 +694,7 @@
         const lsoa = e.features[0].properties.LSOA11CD;
         new mapboxgl.Popup({ closeButton: false, closeOnMove: true, closeOnClick: true })
           .setLngLat(coordinates)
-          .setHTML(`<b>LSOA: ${lsoa}</b><br>Median Price: £${price}(Each property)`)
+          .setHTML(`<b>LSOA: ${lsoa}</b><br><b>Time:2022&2023</b><br>Median Price: £${price}`)
           .addTo(map);
       });
       map.on('mouseenter', 'lsoa_price', function (e) {
